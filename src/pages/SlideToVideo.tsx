@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,8 +10,9 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Upload, Video, Download, Play, Settings, Clock, Brain, Volume2 } from 'lucide-react';
+import { ArrowLeft, Upload, Video, Download, Play, Settings, Clock, Brain, Volume2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SlideToVideoSettings {
   intelligenceLevel: number;
@@ -19,6 +21,15 @@ interface SlideToVideoSettings {
   voice: string;
   tone: string;
   customInstructions: string;
+}
+
+interface GeneratedResult {
+  success: boolean;
+  script: string;
+  audioUrl: string;
+  videoUrl: string;
+  duration: string;
+  settings: SlideToVideoSettings;
 }
 
 const SlideToVideo = () => {
@@ -33,15 +44,19 @@ const SlideToVideo = () => {
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
+  const [generatedResult, setGeneratedResult] = useState<GeneratedResult | null>(null);
+  const [processingStage, setProcessingStage] = useState('');
   const { toast } = useToast();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const validTypes = ['application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/pdf'];
-      if (validTypes.includes(file.type) || file.name.endsWith('.pptx') || file.name.endsWith('.ppt') || file.name.endsWith('.pdf')) {
+      const validExtensions = ['.pptx', '.ppt', '.pdf'];
+      
+      if (validTypes.includes(file.type) || validExtensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
         setUploadedFile(file);
+        setGeneratedResult(null);
         toast({
           title: "File uploaded successfully",
           description: `${file.name} is ready for conversion`
@@ -68,6 +83,40 @@ const SlideToVideo = () => {
     });
   };
 
+  const simulateProgress = () => {
+    const stages = [
+      { name: 'Uploading file...', duration: 1000 },
+      { name: 'Extracting slide content...', duration: 2000 },
+      { name: 'Generating script...', duration: 3000 },
+      { name: 'Creating voiceover...', duration: 4000 },
+      { name: 'Finalizing video...', duration: 2000 }
+    ];
+
+    let currentProgress = 0;
+    let stageIndex = 0;
+
+    const updateProgress = () => {
+      if (stageIndex < stages.length) {
+        const stage = stages[stageIndex];
+        setProcessingStage(stage.name);
+        
+        const stageProgress = (stageIndex + 1) * (100 / stages.length);
+        const interval = setInterval(() => {
+          currentProgress += 2;
+          setProgress(Math.min(currentProgress, stageProgress));
+          
+          if (currentProgress >= stageProgress) {
+            clearInterval(interval);
+            stageIndex++;
+            setTimeout(updateProgress, 500);
+          }
+        }, 100);
+      }
+    };
+
+    updateProgress();
+  };
+
   const handleGenerateVideo = async () => {
     if (!uploadedFile) {
       toast({
@@ -80,63 +129,71 @@ const SlideToVideo = () => {
 
     setIsProcessing(true);
     setProgress(0);
+    setProcessingStage('Starting video generation...');
+    
+    // Start progress simulation
+    simulateProgress();
 
     try {
       const fileBase64 = await fileToBase64(uploadedFile);
       
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return prev + Math.random() * 10;
-        });
-      }, 1000);
-
-      const response = await fetch('https://bciaqupkkahyfaoxalyd.functions.supabase.co/generate-video-from-slides', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('generate-video-from-slides', {
+        body: {
           slideData: fileBase64,
           fileName: uploadedFile.name,
-          settings: {
-            intelligenceLevel: settings.intelligenceLevel,
-            minLength: settings.minLength,
-            maxLength: settings.maxLength,
-            voice: settings.voice,
-            tone: settings.tone,
-            customInstructions: settings.customInstructions
-          }
-        }),
+          settings: settings
+        }
       });
 
-      clearInterval(progressInterval);
-      setProgress(100);
-
-      if (!response.ok) {
-        throw new Error(`Video generation failed: ${response.statusText}`);
+      if (error) {
+        throw new Error(error.message || 'Video generation failed');
       }
 
-      const result = await response.json();
-      setGeneratedVideo(result.videoUrl || 'mock-video-url');
-      
-      toast({
-        title: "Video generated successfully!",
-        description: "Your presentation video is ready"
-      });
+      if (data && data.success) {
+        setGeneratedResult(data);
+        setProgress(100);
+        setProcessingStage('Video generation complete!');
+        toast({
+          title: "Video generated successfully!",
+          description: "Your presentation video is ready"
+        });
+      } else {
+        throw new Error(data?.error || 'Video generation failed');
+      }
     } catch (error: any) {
       console.error('Video generation error:', error);
+      setProcessingStage('Error occurred during generation');
       toast({
         title: "Video generation failed",
-        description: error.message,
+        description: error.message || 'Please try again',
         variant: "destructive"
       });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleDownloadVideo = () => {
+    if (generatedResult?.videoUrl) {
+      toast({
+        title: "Download started",
+        description: "Your video is being prepared for download"
+      });
+      // In a real implementation, this would trigger an actual download
+    }
+  };
+
+  const handlePlayAudio = () => {
+    if (generatedResult?.audioUrl) {
+      const audio = new Audio(generatedResult.audioUrl);
+      audio.play().catch(error => {
+        console.error('Error playing audio:', error);
+        toast({
+          title: "Playback error",
+          description: "Unable to play audio preview",
+          variant: "destructive"
+        });
+      });
     }
   };
 
@@ -151,17 +208,19 @@ const SlideToVideo = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-orange-50">
-      <div className="max-w-5xl mx-auto px-6 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50/50 to-orange-50/50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Home
           </Link>
-          <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-            Slides to Video Converter
-          </h1>
+          <div className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl sm:text-4xl font-bold mb-2">
+              Slides to Video Converter
+            </h1>
+          </div>
           <p className="text-muted-foreground text-lg">Transform your presentations into engaging video content with AI narration</p>
         </div>
 
@@ -170,7 +229,7 @@ const SlideToVideo = () => {
           <div className="lg:col-span-1 space-y-4">
             {/* File Upload */}
             <Card className="hover:shadow-md transition-shadow">
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle className="flex items-center space-x-2">
                   <Upload className="w-5 h-5" />
                   <span>Upload Presentation</span>
@@ -180,8 +239,8 @@ const SlideToVideo = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                <div className="space-y-3">
+                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center hover:border-primary/50 transition-colors cursor-pointer">
                     <input
                       type="file"
                       onChange={handleFileUpload}
@@ -190,7 +249,7 @@ const SlideToVideo = () => {
                       id="file-upload"
                     />
                     <label htmlFor="file-upload" className="cursor-pointer">
-                      <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                      <Upload className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
                       <p className="text-sm text-muted-foreground">
                         Click to upload or drag and drop
                       </p>
@@ -198,8 +257,8 @@ const SlideToVideo = () => {
                   </div>
                   {uploadedFile && (
                     <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg">
-                      <Video className="w-4 h-4 text-primary" />
-                      <span className="text-sm font-medium truncate">{uploadedFile.name}</span>
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      <span className="text-sm font-medium truncate flex-1">{uploadedFile.name}</span>
                       <Badge variant="secondary">Ready</Badge>
                     </div>
                   )}
@@ -209,15 +268,15 @@ const SlideToVideo = () => {
 
             {/* Settings */}
             <Card className="hover:shadow-md transition-shadow">
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle className="flex items-center space-x-2">
                   <Settings className="w-5 h-5" />
                   <span>Customization</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-5">
+              <CardContent className="space-y-4">
                 {/* Intelligence Level */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <Label className="flex items-center space-x-2">
                     <Brain className="w-4 h-4" />
                     <span>Intelligence Level: {intelligenceLabels[settings.intelligenceLevel - 1]}</span>
@@ -236,7 +295,7 @@ const SlideToVideo = () => {
                 </div>
 
                 {/* Video Length */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <Label className="flex items-center space-x-2">
                     <Clock className="w-4 h-4" />
                     <span>Video Length (minutes)</span>
@@ -250,6 +309,7 @@ const SlideToVideo = () => {
                         onChange={(e) => setSettings(prev => ({ ...prev, minLength: parseInt(e.target.value) || 5 }))}
                         min={1}
                         max={60}
+                        className="h-8"
                       />
                     </div>
                     <div>
@@ -260,19 +320,20 @@ const SlideToVideo = () => {
                         onChange={(e) => setSettings(prev => ({ ...prev, maxLength: parseInt(e.target.value) || 15 }))}
                         min={1}
                         max={60}
+                        className="h-8"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Voice Selection */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <Label className="flex items-center space-x-2">
                     <Volume2 className="w-4 h-4" />
                     <span>Voice Preset</span>
                   </Label>
                   <Select value={settings.voice} onValueChange={(value) => setSettings(prev => ({ ...prev, voice: value }))}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8">
                       <SelectValue placeholder="Select voice" />
                     </SelectTrigger>
                     <SelectContent>
@@ -286,10 +347,10 @@ const SlideToVideo = () => {
                 </div>
 
                 {/* Tone */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <Label>Presentation Tone</Label>
                   <Select value={settings.tone} onValueChange={(value) => setSettings(prev => ({ ...prev, tone: value }))}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8">
                       <SelectValue placeholder="Select tone" />
                     </SelectTrigger>
                     <SelectContent>
@@ -303,13 +364,14 @@ const SlideToVideo = () => {
                 </div>
 
                 {/* Custom Instructions */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <Label>Custom Instructions (Optional)</Label>
                   <Textarea
                     placeholder="Any specific instructions for the AI narrator..."
                     value={settings.customInstructions}
                     onChange={(e) => setSettings(prev => ({ ...prev, customInstructions: e.target.value }))}
-                    rows={3}
+                    rows={2}
+                    className="text-sm"
                   />
                 </div>
               </CardContent>
@@ -320,7 +382,7 @@ const SlideToVideo = () => {
           <div className="lg:col-span-2 space-y-4">
             {/* Generate Button */}
             <Card className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
+              <CardContent className="p-4">
                 <Button
                   onClick={handleGenerateVideo}
                   disabled={!uploadedFile || isProcessing}
@@ -345,9 +407,9 @@ const SlideToVideo = () => {
             {/* Progress */}
             {isProcessing && (
               <Card className="hover:shadow-md transition-shadow">
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <CardTitle>Generating Your Video</CardTitle>
-                  <CardDescription>This may take a few minutes depending on the size of your presentation</CardDescription>
+                  <CardDescription>{processingStage}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Progress value={progress} className="w-full" />
@@ -356,36 +418,51 @@ const SlideToVideo = () => {
               </Card>
             )}
 
-            {/* Generated Video */}
-            {generatedVideo && (
-              <Card className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Play className="w-5 h-5" />
-                    <span>Generated Video</span>
-                  </CardTitle>
-                  <CardDescription>Your presentation has been converted to video</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-                    <div className="text-center space-y-2">
-                      <Video className="w-12 h-12 text-muted-foreground mx-auto" />
-                      <p className="text-sm text-muted-foreground">Video preview would appear here</p>
-                      <p className="text-xs text-muted-foreground">Mock video: {generatedVideo}</p>
+            {/* Generated Result */}
+            {generatedResult && (
+              <div className="space-y-4">
+                <Card className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center space-x-2">
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <span>Video Generated Successfully</span>
+                    </CardTitle>
+                    <CardDescription>Your presentation has been converted to video with AI narration</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="aspect-video bg-gradient-to-br from-purple-100 to-orange-100 rounded-lg flex items-center justify-center">
+                      <div className="text-center space-y-2">
+                        <Video className="w-12 h-12 text-primary mx-auto" />
+                        <p className="text-sm text-muted-foreground">Video preview</p>
+                        <p className="text-xs text-muted-foreground">Duration: {generatedResult.duration}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button className="flex-1">
-                      <Play className="w-4 h-4 mr-2" />
-                      Play Video
-                    </Button>
-                    <Button variant="outline" className="flex-1">
-                      <Download className="w-4 h-4 mr-2" />
-                      Download
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button onClick={handlePlayAudio} variant="outline" className="w-full">
+                        <Play className="w-4 h-4 mr-2" />
+                        Play Audio
+                      </Button>
+                      <Button onClick={handleDownloadVideo} className="w-full">
+                        <Download className="w-4 h-4 mr-2" />
+                        Download Video
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Script Preview */}
+                <Card className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-3">
+                    <CardTitle>Generated Script</CardTitle>
+                    <CardDescription>AI-generated narration script for your presentation</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-40 overflow-y-auto p-3 bg-muted rounded-lg">
+                      <p className="text-sm whitespace-pre-wrap">{generatedResult.script}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             )}
           </div>
         </div>
