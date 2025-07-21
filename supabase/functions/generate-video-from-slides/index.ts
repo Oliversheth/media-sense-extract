@@ -39,45 +39,40 @@ serve(async (req) => {
 
     console.log(`Processing slides from file: ${fileName}`);
 
-    // Generate script from slides using OpenAI
-    const scriptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a professional presentation narrator. Create a detailed script for a video presentation based on the uploaded slides. 
-            
-            Intelligence Level: ${settings.intelligenceLevel}/5 (1=basic, 5=expert academic level)
-            Target Length: ${settings.minLength}-${settings.maxLength} minutes
-            Voice: ${settings.voice}
-            Tone: ${settings.tone}
-            
-            Instructions:
-            - Expand on the slide content with detailed explanations
-            - Maintain the specified tone and intelligence level
-            - Include smooth transitions between slides
-            - Add relevant examples and context
-            - Ensure the content fits the target duration
-            
-            ${settings.customInstructions ? `Additional instructions: ${settings.customInstructions}` : ''}
-            
-            Return a detailed script that can be used for text-to-speech generation.`
-          },
-          {
-            role: 'user',
-            content: `Create a presentation script from these slides. File: ${fileName}. Note: The actual slide content would be extracted from the base64 data in a production system.`
-          }
-        ],
-        max_tokens: 2000,
-        temperature: 0.7,
+    // Generate script from slides using OpenAI with timeout handling
+    const scriptResponse = await Promise.race([
+      fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a professional presentation narrator. Create a detailed script for a video presentation.
+              
+              Intelligence Level: ${settings.intelligenceLevel}/5 (1=basic, 5=expert academic level)
+              Target Length: ${settings.minLength}-${settings.maxLength} minutes
+              Voice: ${settings.voice}
+              Tone: ${settings.tone}
+              
+              Create an engaging script that expands on slide content with smooth transitions.
+              ${settings.customInstructions ? `Additional instructions: ${settings.customInstructions}` : ''}`
+            },
+            {
+              role: 'user',
+              content: `Create a ${settings.minLength}-${settings.maxLength} minute presentation script in a ${settings.tone} tone for file: ${fileName}. Make it engaging and informative.`
+            }
+          ],
+          max_tokens: 1500,
+          temperature: 0.7,
+        }),
       }),
-    });
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Script generation timeout')), 30000))
+    ]);
 
     if (!scriptResponse.ok) {
       throw new Error(`Script generation failed: ${scriptResponse.statusText}`);
@@ -86,20 +81,23 @@ serve(async (req) => {
     const scriptData = await scriptResponse.json();
     const script = scriptData.choices[0].message.content;
 
-    // Generate audio from script using OpenAI TTS
-    const audioResponse = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'tts-1',
-        input: script,
-        voice: settings.voice,
-        response_format: 'mp3',
+    // Generate audio from script using OpenAI TTS with timeout
+    const audioResponse = await Promise.race([
+      fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'tts-1',
+          input: script.substring(0, 4000), // Limit to prevent timeout
+          voice: settings.voice,
+          response_format: 'mp3',
+        }),
       }),
-    });
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Audio generation timeout')), 45000))
+    ]);
 
     if (!audioResponse.ok) {
       throw new Error(`Audio generation failed: ${audioResponse.statusText}`);

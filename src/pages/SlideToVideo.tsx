@@ -152,22 +152,24 @@ const SlideToVideo = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-orange-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
+          <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Home
           </Link>
-          <h1 className="text-3xl font-bold mb-2">Slides to Video Converter</h1>
-          <p className="text-muted-foreground">Transform your presentations into engaging video content with AI narration</p>
+          <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+            Slides to Video Converter
+          </h1>
+          <p className="text-muted-foreground text-lg">Transform your presentations into engaging video content with AI narration</p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-3 gap-6">
           {/* Settings Panel */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 space-y-4">
             {/* File Upload */}
-            <Card>
+            <Card className="hover:shadow-md transition-shadow">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Upload className="w-5 h-5" />
@@ -179,7 +181,7 @@ const SlideToVideo = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
                     <input
                       type="file"
                       onChange={handleFileUpload}
@@ -206,14 +208,14 @@ const SlideToVideo = () => {
             </Card>
 
             {/* Settings */}
-            <Card>
+            <Card className="hover:shadow-md transition-shadow">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Settings className="w-5 h-5" />
                   <span>Customization</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-5">
                 {/* Intelligence Level */}
                 <div className="space-y-3">
                   <Label className="flex items-center space-x-2">
@@ -315,9 +317,9 @@ const SlideToVideo = () => {
           </div>
 
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4">
             {/* Generate Button */}
-            <Card>
+            <Card className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
                 <Button
                   onClick={handleGenerateVideo}
@@ -342,7 +344,7 @@ const SlideToVideo = () => {
 
             {/* Progress */}
             {isProcessing && (
-              <Card>
+              <Card className="hover:shadow-md transition-shadow">
                 <CardHeader>
                   <CardTitle>Generating Your Video</CardTitle>
                   <CardDescription>This may take a few minutes depending on the size of your presentation</CardDescription>
@@ -356,7 +358,7 @@ const SlideToVideo = () => {
 
             {/* Generated Video */}
             {generatedVideo && (
-              <Card>
+              <Card className="hover:shadow-md transition-shadow">
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Play className="w-5 h-5" />

@@ -10,7 +10,7 @@ const Home = () => {
     <div className="min-h-screen">
       {/* Navigation */}
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-6">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -31,23 +31,23 @@ const Home = () => {
       </nav>
 
       {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
+      <div className="relative overflow-hidden bg-gradient-to-br from-purple-50/50 to-orange-50/50">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-400/10 via-pink-400/10 to-orange-400/10" />
+        <div className="relative max-w-6xl mx-auto px-6 py-20">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="space-y-6">
               <div className="space-y-4">
-                <Badge variant="secondary" className="mb-4">
+                <Badge variant="secondary" className="mb-2">
                   AI-Powered Video Tools
                 </Badge>
-                <h1 className="text-5xl lg:text-6xl font-bold leading-tight">
+                <h1 className="text-4xl lg:text-5xl font-bold leading-tight">
                   <span className="bg-gradient-to-r from-primary via-purple-600 to-orange-500 bg-clip-text text-transparent">
                     Transform content
                   </span>
                   <br />
                   with AI precision
                 </h1>
-                <p className="text-xl text-muted-foreground max-w-xl">
+                <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
                   Convert slides to engaging video presentations or extract key insights from videos. 
                   Powered by advanced AI to save you time and enhance your content.
                 </p>
@@ -106,8 +106,8 @@ const Home = () => {
       </div>
 
       {/* Features Section */}
-      <div className="py-24 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="py-20 bg-muted/30">
+        <div className="max-w-6xl mx-auto px-6">
           <div className="text-center space-y-4 mb-16">
             <h2 className="text-3xl lg:text-4xl font-bold">Two powerful tools, endless possibilities</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -117,9 +117,9 @@ const Home = () => {
 
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Slide to Video Card */}
-            <Card className="p-8 hover:shadow-lg transition-shadow border-2 hover:border-primary/20">
+            <Card className="p-6 hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/20 group">
               <CardHeader className="p-0 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mb-4">
+                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <FileText className="w-6 h-6 text-white" />
                 </div>
                 <CardTitle className="text-2xl">Slides → Video</CardTitle>
@@ -152,9 +152,9 @@ const Home = () => {
             </Card>
 
             {/* Video Analysis Card */}
-            <Card className="p-8 hover:shadow-lg transition-shadow border-2 hover:border-primary/20">
+            <Card className="p-6 hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/20 group">
               <CardHeader className="p-0 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mb-4">
+                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Video className="w-6 h-6 text-white" />
                 </div>
                 <CardTitle className="text-2xl">Video → Insights</CardTitle>
@@ -190,8 +190,8 @@ const Home = () => {
       </div>
 
       {/* CTA Section */}
-      <div className="py-24">
-        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+      <div className="py-20">
+        <div className="max-w-4xl mx-auto text-center px-6">
           <h2 className="text-3xl lg:text-4xl font-bold mb-6">
             Ready to transform your content workflow?
           </h2>
