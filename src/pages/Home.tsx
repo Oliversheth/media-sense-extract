@@ -155,7 +155,7 @@ const Home = () => {
                   </div>
                 </div>
                 <Link to="/video-analysis" className="block">
-                  <Button className="w-full" variant="outline" className="group-hover:bg-muted">
+                  <Button className="w-full group-hover:bg-muted" variant="outline">
                     Analyze Video Content
                     <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
