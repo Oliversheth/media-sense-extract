@@ -33,8 +33,19 @@ const Home = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative py-16 sm:py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative py-16 sm:py-20 overflow-hidden">
+        {/* Stripe-inspired gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-purple-50/30 to-orange-50/20 dark:from-primary/10 dark:via-purple-950/30 dark:to-orange-950/20"></div>
+        
+        {/* Geometric shapes */}
+        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-primary/20 to-purple-500/20 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-br from-orange-400/20 to-primary/20 rounded-full blur-lg"></div>
+        <div className="absolute bottom-20 left-1/4 w-40 h-40 bg-gradient-to-br from-purple-400/10 to-orange-400/10 rounded-full blur-2xl"></div>
+        
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center space-y-6">
             <Badge variant="secondary" className="mb-2">
               <Zap className="w-3 h-3 mr-1" />
