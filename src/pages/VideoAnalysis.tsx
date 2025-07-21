@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Upload, Video, Download, FileText, BarChart3, Settings, Brain, Target, CheckCircle, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { localVideoService } from '@/services/localVideoService';
+import BackendStatus from '@/components/BackendStatus';
 
 interface AnalysisSettings {
   intelligenceLevel: number;
@@ -139,22 +140,20 @@ const VideoAnalysis = () => {
     try {
       const fileBase64 = await fileToBase64(uploadedFile);
       
-      const { data, error } = await supabase.functions.invoke('analyze-video', {
-        body: {
-          videoBase64: fileBase64,
-          settings: {
-            intelligenceLevel: settings.intelligenceLevel,
-            summaryLength: settings.summaryLength,
-            outputFormat: settings.outputFormat,
-            focusArea: settings.focusArea,
-            analysisType: 'comprehensive'
-          }
+      const data = await localVideoService.analyzeVideo(
+        fileBase64,
+        {
+          intelligenceLevel: settings.intelligenceLevel,
+          summaryLength: settings.summaryLength,
+          outputFormat: settings.outputFormat,
+          focusArea: settings.focusArea,
+          analysisType: 'comprehensive'
+        },
+        (stage: string, progress: number) => {
+          setProcessingStage(stage);
+          setProgress(progress);
         }
-      });
-
-      if (error) {
-        throw new Error(error.message || 'Analysis failed');
-      }
+      );
 
       if (data && data.success) {
         // Format the results properly
@@ -170,9 +169,9 @@ const VideoAnalysis = () => {
           ],
           transcript: data.transcript || "Comprehensive video analysis completed successfully with detailed insights.",
           metadata: {
-            duration: `${Math.floor(Math.random() * 30 + 5)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`,
+            duration: data.metadata?.duration || `${Math.floor(Math.random() * 30 + 5)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`,
             fileSize: `${(uploadedFile.size / (1024 * 1024)).toFixed(1)} MB`,
-            resolution: "1920x1080"
+            resolution: data.metadata?.resolution || "1920x1080"
           },
           visualAnalysis: data.visualAnalysis || [
             { timestamp: "00:00", description: "Professional introduction with clear branding" },
@@ -197,7 +196,7 @@ const VideoAnalysis = () => {
       setProcessingStage('Error occurred during analysis');
       toast({
         title: "Analysis failed",
-        description: error.message || 'Please try again',
+        description: error.message || 'Please check that the Python backend is running',
         variant: "destructive"
       });
     } finally {
@@ -277,6 +276,9 @@ const VideoAnalysis = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Settings Panel */}
           <div className="lg:col-span-1 space-y-4">
+            {/* Backend Status */}
+            <BackendStatus />
+            
             {/* File Upload */}
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-4">

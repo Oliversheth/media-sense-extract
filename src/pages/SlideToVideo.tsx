@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +11,8 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Upload, Video, Download, Play, Settings, Clock, Brain, Volume2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { localVideoService } from '@/services/localVideoService';
+import BackendStatus from '@/components/BackendStatus';
 
 interface SlideToVideoSettings {
   intelligenceLevel: number;
@@ -130,27 +130,22 @@ const SlideToVideo = () => {
     setIsProcessing(true);
     setProgress(0);
     setProcessingStage('Starting video generation...');
-    
-    // Start progress simulation
-    simulateProgress();
 
     try {
       const fileBase64 = await fileToBase64(uploadedFile);
       
-      const { data, error } = await supabase.functions.invoke('generate-video-from-slides', {
-        body: {
-          slideData: fileBase64,
-          fileName: uploadedFile.name,
-          settings: settings
+      const result = await localVideoService.generateVideoFromSlides(
+        fileBase64,
+        uploadedFile.name,
+        settings,
+        (stage: string, progress: number) => {
+          setProcessingStage(stage);
+          setProgress(progress);
         }
-      });
+      );
 
-      if (error) {
-        throw new Error(error.message || 'Video generation failed');
-      }
-
-      if (data && data.success) {
-        setGeneratedResult(data);
+      if (result && result.success) {
+        setGeneratedResult(result);
         setProgress(100);
         setProcessingStage('Video generation complete!');
         toast({
@@ -158,14 +153,14 @@ const SlideToVideo = () => {
           description: "Your presentation video is ready"
         });
       } else {
-        throw new Error(data?.error || 'Video generation failed');
+        throw new Error(result?.error || 'Video generation failed');
       }
     } catch (error: any) {
       console.error('Video generation error:', error);
       setProcessingStage('Error occurred during generation');
       toast({
         title: "Video generation failed",
-        description: error.message || 'Please try again',
+        description: error.message || 'Please check that the Python backend is running',
         variant: "destructive"
       });
     } finally {
@@ -227,6 +222,9 @@ const SlideToVideo = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Settings Panel */}
           <div className="lg:col-span-1 space-y-4">
+            {/* Backend Status */}
+            <BackendStatus />
+            
             {/* File Upload */}
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-4">
