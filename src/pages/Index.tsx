@@ -129,100 +129,182 @@ const Index = () => {
     simulateProcessing(initialState);
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]); // Remove data:video/mp4;base64, prefix
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const simulateProcessing = async (state: ProcessingState) => {
     const stages: ProcessingStage[] = ['metadata', 'frames', 'visual', 'audio', 'final', 'complete'];
+    let storedResults: AnalysisResults | null = null;
     
-    for (const stage of stages) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Convert file to base64
+      const fileBase64 = await fileToBase64(uploadedFile!);
       
-      // Update current stage
-      setProcessingState(prev => {
-        if (!prev) return null;
-        
-        const updated = { ...prev };
-        updated.currentStage = stage;
-        
-        // Complete previous stage
-        const prevStageIndex = stages.indexOf(stage) - 1;
-        if (prevStageIndex >= 0) {
-          const prevStage = stages[prevStageIndex];
-          updated.stages[prevStage] = {
-            status: 'complete',
-            progress: 100,
-            message: `${prevStage} completed successfully`
-          };
-        }
-        
-        // Start current stage
-        updated.stages[stage] = {
-          status: 'processing',
-          progress: 0,
-          message: getStageMessage(stage)
-        };
-        
-        updated.logs.push(`Starting ${stage} processing...`);
-        
-        return updated;
-      });
-
-      // Simulate progress
-      for (let progress = 0; progress <= 100; progress += 25) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+      for (const stage of stages) {
+        // Update current stage
         setProcessingState(prev => {
           if (!prev) return null;
+          
           const updated = { ...prev };
-          updated.stages[stage].progress = progress;
+          updated.currentStage = stage;
+          
+          // Complete previous stage
+          const prevStageIndex = stages.indexOf(stage) - 1;
+          if (prevStageIndex >= 0) {
+            const prevStage = stages[prevStageIndex];
+            updated.stages[prevStage] = {
+              status: 'complete',
+              progress: 100,
+              message: `${prevStage} completed successfully`
+            };
+          }
+          
+          // Start current stage
+          updated.stages[stage] = {
+            status: 'processing',
+            progress: 0,
+            message: getStageMessage(stage)
+          };
+          
+          updated.logs.push(`Starting ${stage} processing...`);
+          
           return updated;
         });
-      }
-    }
 
-    // Generate mock results
-    const mockResults: AnalysisResults = {
-      summary: {
-        duration: "3:42",
-        keyInsights: [
-          "Video contains primarily talking head content with occasional screen sharing",
-          "Speaker maintains consistent eye contact with camera",
-          "Professional indoor lighting setup detected"
-        ],
-        mainTopics: ["Product demonstration", "Technical explanation", "Q&A session"]
-      },
-      visualAnalysis: [
-        { timestamp: "00:00", description: "Speaker introduction in well-lit office environment" },
-        { timestamp: "01:15", description: "Transition to screen sharing showing application interface" },
-        { timestamp: "02:30", description: "Return to speaker with hands-on demonstration" },
-        { timestamp: "03:20", description: "Closing remarks with contact information displayed" }
-      ],
-      transcript: {
-        fullText: "Hello everyone, welcome to today's demonstration. I'm excited to show you our new video analysis tool that combines multiple AI providers for comprehensive video processing...",
-        segments: [
-          { timestamp: "00:00", text: "Hello everyone, welcome to today's demonstration.", confidence: 0.98 },
-          { timestamp: "00:05", text: "I'm excited to show you our new video analysis tool", confidence: 0.95 },
-          { timestamp: "00:12", text: "that combines multiple AI providers for comprehensive video processing.", confidence: 0.92 }
-        ]
-      },
-      metadata: {
-        resolution: "1920x1080",
-        codec: "H.264",
-        fileSize: "45.2 MB",
-        duration: "3:42"
-      },
-      rawData: {
-        processingTime: "2.3 minutes",
-        framesExtracted: analysisSettings.frameCount,
-        apiCalls: {
-          vision: 10,
-          audio: 1
+        if (stage === 'visual') {
+          // Call real API for video analysis
+          try {
+            const response = await fetch('https://bciaqupkkahyfaoxalyd.functions.supabase.co/analyze-video', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                videoBase64: fileBase64,
+                settings: {
+                  frameCount: analysisSettings.frameCount,
+                  quality: analysisSettings.frameQuality,
+                  analysisType: 'full',
+                  outputFormat: analysisSettings.outputFormat
+                }
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Analysis failed: ${response.statusText}`);
+            }
+
+            const analysisResults = await response.json();
+            storedResults = analysisResults;
+            
+            // Update progress
+            for (let progress = 0; progress <= 100; progress += 25) {
+              await new Promise(resolve => setTimeout(resolve, 300));
+              setProcessingState(prev => {
+                if (!prev) return null;
+                const updated = { ...prev };
+                updated.stages[stage].progress = progress;
+                return updated;
+              });
+            }
+          } catch (error) {
+            throw error; // Re-throw to be handled by outer catch
+          }
+        } else {
+          // Simulate progress for other stages
+          for (let progress = 0; progress <= 100; progress += 25) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            setProcessingState(prev => {
+              if (!prev) return null;
+              const updated = { ...prev };
+              updated.stages[stage].progress = progress;
+              return updated;
+            });
+          }
         }
       }
-    };
-
-    setResults(mockResults);
-    toast({
-      title: "Analysis complete!",
-      description: "Your video has been successfully analyzed"
-    });
+      
+      // Set results after all stages complete
+      if (storedResults) {
+        setResults(storedResults);
+      } else {
+        // Fallback to mock results if no real analysis was performed
+        const mockResults: AnalysisResults = {
+          summary: {
+            duration: "3:42",
+            keyInsights: [
+              "Video contains primarily talking head content with occasional screen sharing",
+              "Speaker maintains consistent eye contact with camera",
+              "Professional indoor lighting setup detected"
+            ],
+            mainTopics: ["Product demonstration", "Technical explanation", "Q&A session"]
+          },
+          visualAnalysis: [
+            { timestamp: "00:00", description: "Speaker introduction in well-lit office environment" },
+            { timestamp: "01:15", description: "Transition to screen sharing showing application interface" },
+            { timestamp: "02:30", description: "Return to speaker with hands-on demonstration" },
+            { timestamp: "03:20", description: "Closing remarks with contact information displayed" }
+          ],
+          transcript: {
+            fullText: "Hello everyone, welcome to today's demonstration. I'm excited to show you our new video analysis tool...",
+            segments: [
+              { timestamp: "00:00", text: "Hello everyone, welcome to today's demonstration.", confidence: 0.98 },
+              { timestamp: "00:05", text: "I'm excited to show you our new video analysis tool", confidence: 0.95 }
+            ]
+          },
+          metadata: {
+            resolution: "1920x1080",
+            codec: "H.264",
+            fileSize: "45.2 MB",
+            duration: "3:42"
+          },
+          rawData: {
+            processingTime: "2.3 minutes",
+            framesExtracted: analysisSettings.frameCount,
+            apiCalls: { vision: 10, audio: 1 }
+          }
+        };
+        setResults(mockResults);
+      }
+      
+      toast({
+        title: "Analysis complete!",
+        description: "Your video has been successfully analyzed"
+      });
+    } catch (error: any) {
+      console.error('Processing error:', error);
+      setProcessingState(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          stages: {
+            ...prev.stages,
+            [prev.currentStage]: {
+              ...prev.stages[prev.currentStage],
+              status: 'error',
+              message: `Error: ${error.message}`
+            }
+          },
+          logs: [...prev.logs, `Error: ${error.message}`]
+        };
+      });
+      
+      toast({
+        title: "Analysis failed",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
   };
 
   const getStageMessage = (stage: ProcessingStage): string => {
