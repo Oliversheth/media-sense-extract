@@ -26,10 +26,10 @@ serve(async (req) => {
   }
 
   try {
-    const { slides, settings }: SlideToVideoRequest = await req.json();
+    const { slideData, fileName, settings } = await req.json();
     
-    if (!slides || slides.length === 0) {
-      throw new Error('Slides data is required');
+    if (!slideData) {
+      throw new Error('Slide data is required');
     }
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -37,52 +37,101 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    console.log(`Processing ${slides.length} slides with ${settings.style} style`);
+    console.log(`Processing slides from file: ${fileName}`);
 
-    // Generate script for each slide
-    const slideScripts = await Promise.all(
-      slides.map(slide => generateSlideScript(slide, settings, openaiApiKey))
-    );
-
-    // Generate voice narration for each slide
-    const audioTracks = await Promise.all(
-      slideScripts.map(script => generateVoiceNarration(script, settings, openaiApiKey))
-    );
-
-    // Generate visual enhancements
-    const visualEnhancements = await Promise.all(
-      slides.map(slide => generateVisualEnhancements(slide, settings, openaiApiKey))
-    );
-
-    // Compile final video data
-    const videoData = {
-      slides: slides.map((slide, index) => ({
-        ...slide,
-        script: slideScripts[index],
-        audioUrl: audioTracks[index],
-        visualEnhancements: visualEnhancements[index]
-      })),
-      metadata: {
-        totalDuration: slides.reduce((sum, slide) => sum + slide.duration, 0),
-        resolution: settings.resolution,
-        style: settings.style,
-        voiceType: settings.voiceType,
-        createdAt: new Date().toISOString()
+    // Generate script from slides using OpenAI
+    const scriptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
       },
-      downloadUrl: `https://example.com/video/${Date.now()}.mp4` // Mock URL
-    };
-
-    return new Response(JSON.stringify(videoData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a professional presentation narrator. Create a detailed script for a video presentation based on the uploaded slides. 
+            
+            Intelligence Level: ${settings.intelligenceLevel}/5 (1=basic, 5=expert academic level)
+            Target Length: ${settings.minLength}-${settings.maxLength} minutes
+            Voice: ${settings.voice}
+            Tone: ${settings.tone}
+            
+            Instructions:
+            - Expand on the slide content with detailed explanations
+            - Maintain the specified tone and intelligence level
+            - Include smooth transitions between slides
+            - Add relevant examples and context
+            - Ensure the content fits the target duration
+            
+            ${settings.customInstructions ? `Additional instructions: ${settings.customInstructions}` : ''}
+            
+            Return a detailed script that can be used for text-to-speech generation.`
+          },
+          {
+            role: 'user',
+            content: `Create a presentation script from these slides. File: ${fileName}. Note: The actual slide content would be extracted from the base64 data in a production system.`
+          }
+        ],
+        max_tokens: 2000,
+        temperature: 0.7,
+      }),
     });
 
+    if (!scriptResponse.ok) {
+      throw new Error(`Script generation failed: ${scriptResponse.statusText}`);
+    }
+
+    const scriptData = await scriptResponse.json();
+    const script = scriptData.choices[0].message.content;
+
+    // Generate audio from script using OpenAI TTS
+    const audioResponse = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'tts-1',
+        input: script,
+        voice: settings.voice,
+        response_format: 'mp3',
+      }),
+    });
+
+    if (!audioResponse.ok) {
+      throw new Error(`Audio generation failed: ${audioResponse.statusText}`);
+    }
+
+    // Convert audio to base64 for response
+    const audioBuffer = await audioResponse.arrayBuffer();
+    const audioBase64 = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+
+    const response = {
+      success: true,
+      script: script,
+      audioUrl: `data:audio/mp3;base64,${audioBase64}`,
+      videoUrl: `mock-video-${Date.now()}.mp4`, // In production, this would combine slides with audio
+      duration: `${settings.minLength}-${settings.maxLength} minutes`,
+      settings: settings
+    };
+
+    return new Response(
+      JSON.stringify(response),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
+      }
+    );
   } catch (error) {
-    console.error('Slide to video error:', error);
+    console.error('Error in generate-video-from-slides function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500 
       }
     );
   }
