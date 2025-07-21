@@ -39,14 +39,17 @@ serve(async (req) => {
     console.log(`Processing slides from file: ${fileName}`);
     console.log(`Settings: ${JSON.stringify(settings)}`);
 
-    // Extract slide content (simplified for demo - in production would parse actual file)
+    // Extract slide content
     const slideContent = extractSlideContent(slideData, fileName);
+    console.log('Slide content extracted successfully');
     
     // Generate script with proper timeout
     const script = await generateScript(slideContent, settings, openaiApiKey);
+    console.log('Script generated successfully');
     
     // Generate audio with proper timeout
     const audioUrl = await generateAudio(script, settings, openaiApiKey);
+    console.log('Audio generated successfully');
 
     const response = {
       success: true,
@@ -136,7 +139,7 @@ async function generateScript(slideContent: string, settings: any, apiKey: strin
   Make it sound conversational and professional.`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -166,7 +169,8 @@ async function generateScript(slideContent: string, settings: any, apiKey: strin
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`Script generation failed: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Script generation failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
@@ -181,12 +185,29 @@ async function generateScript(slideContent: string, settings: any, apiKey: strin
   }
 }
 
+// Helper function to convert ArrayBuffer to base64 in chunks to prevent stack overflow
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 32768; // 32KB chunks to prevent stack overflow
+  let binary = '';
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.slice(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  return btoa(binary);
+}
+
 async function generateAudio(script: string, settings: any, apiKey: string): Promise<string> {
-  // Limit script length to prevent timeout
-  const truncatedScript = script.substring(0, 3000);
+  // Limit script length to prevent timeout and memory issues
+  const maxScriptLength = 2000; // Reduced from 3000
+  const truncatedScript = script.substring(0, maxScriptLength);
+  
+  console.log(`Generating audio for script of length: ${truncatedScript.length}`);
   
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 35000); // 35 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 45000); // Increased timeout
 
   try {
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
@@ -207,11 +228,20 @@ async function generateAudio(script: string, settings: any, apiKey: string): Pro
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`Audio generation failed: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Audio generation failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const audioBuffer = await response.arrayBuffer();
-    const audioBase64 = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+    console.log(`Audio buffer size: ${audioBuffer.byteLength} bytes`);
+    
+    // Check if audio buffer is too large
+    if (audioBuffer.byteLength > 10 * 1024 * 1024) { // 10MB limit
+      throw new Error('Generated audio file is too large');
+    }
+    
+    // Use the new chunk-based conversion to prevent stack overflow
+    const audioBase64 = arrayBufferToBase64(audioBuffer);
     
     return `data:audio/mp3;base64,${audioBase64}`;
 
