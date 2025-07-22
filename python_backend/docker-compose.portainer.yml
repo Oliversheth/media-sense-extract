@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # Ollama service for local AI models
+  ollama:
+    image: ollama/ollama:latest
+    container_name: video-ai-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_ORIGINS=*
+    restart: unless-stopped
+    networks:
+      - video-ai-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "io.portainer.accesscontrol.teams=administrators"
+
+  # Python backend service
+  video-ai-backend:
+    image: your-registry/video-ai-backend:latest  # Replace with your image
+    container_name: video-ai-backend
+    ports:
+      - "8001:8001"
+    volumes:
+      - backend_data:/app/output
+      - backend_temp:/app/temp
+      - backend_cache:/app/cache
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - PYTHONUNBUFFERED=1
+      - TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
+      - LOG_LEVEL=INFO
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - video-ai-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "io.portainer.accesscontrol.teams=administrators"
+
+volumes:
+  ollama_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/docker/video-ai/ollama_data  # Adjust path as needed
+  backend_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/docker/video-ai/backend_data  # Adjust path as needed
+  backend_temp:
+    driver: local
+  backend_cache:
+    driver: local
+
+networks:
+  video-ai-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

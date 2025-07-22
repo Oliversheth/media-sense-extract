@@ -8,8 +8,10 @@ from typing import Dict, Any, Optional
 logger = logging.getLogger(__name__)
 
 class OllamaClient:
-    def __init__(self, base_url: str = "http://localhost:11434"):
-        self.base_url = base_url
+    def __init__(self, base_url: str = None):
+        # Use environment variable or default to localhost
+        import os
+        self.base_url = base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
         self.session = None
     
     async def get_session(self):
