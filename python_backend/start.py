@@ -7,7 +7,25 @@ import os
 def install_requirements():
     """Install required packages"""
     print("Installing requirements...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+        print("✓ Requirements installed successfully")
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Failed to install requirements: {e}")
+        return False
+    return True
+
+def check_python_version():
+    """Check Python version compatibility"""
+    version = sys.version_info
+    print(f"Python version: {version.major}.{version.minor}.{version.micro}")
+    
+    if version.major == 3 and version.minor >= 11:
+        print("✓ Python version is compatible")
+        return True
+    else:
+        print("✗ Python 3.11+ required")
+        return False
 
 def check_ollama():
     """Check if Ollama is running"""
@@ -37,12 +55,13 @@ def main():
         print("Error: Please run this from the python_backend directory")
         sys.exit(1)
     
+    # Check Python version
+    if not check_python_version():
+        print("\nPlease use Python 3.11.8 or higher")
+        sys.exit(1)
+    
     # Install requirements
-    try:
-        install_requirements()
-        print("✓ Requirements installed")
-    except Exception as e:
-        print(f"✗ Failed to install requirements: {e}")
+    if not install_requirements():
         sys.exit(1)
     
     # Check Ollama
@@ -54,14 +73,20 @@ def main():
         print("  ollama pull deepseek-coder:instruct")
         sys.exit(1)
     
-    print("\n🎯 Starting FastAPI server...")
-    print("Backend will be available at: http://localhost:8000")
-    print("API docs at: http://localhost:8000/docs")
+    print("\n🎯 Starting FastAPI server on port 8001...")
+    print("Backend will be available at: http://localhost:8001")
+    print("API docs at: http://localhost:8001/docs")
     print("\nPress Ctrl+C to stop the server")
     print("=" * 50)
     
     # Start the server
-    os.system("python main.py")
+    try:
+        subprocess.run([sys.executable, "main.py"], check=True)
+    except KeyboardInterrupt:
+        print("\n🛑 Server stopped by user")
+    except subprocess.CalledProcessError as e:
+        print(f"\n✗ Server failed to start: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

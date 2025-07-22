@@ -1,27 +1,12 @@
 
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
-
-class VideoSettings(BaseModel):
-    intelligenceLevel: int
-    minLength: int
-    maxLength: int
-    voice: str
-    tone: str
-    customInstructions: Optional[str] = ""
+from typing import Dict, Any, Optional
 
 class VideoGenerationRequest(BaseModel):
     slideData: str
     fileName: str
-    settings: VideoSettings
-
-class AnalysisSettings(BaseModel):
-    intelligenceLevel: int
-    summaryLength: str
-    outputFormat: str
-    focusArea: str
-    analysisType: str
+    settings: Dict[str, Any]
 
 class AnalysisRequest(BaseModel):
     videoBase64: str
-    settings: AnalysisSettings
+    settings: Dict[str, Any]

@@ -1,6 +1,6 @@
 
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 
 class VideoGenerationResponse(BaseModel):
     success: bool
@@ -10,25 +10,11 @@ class VideoGenerationResponse(BaseModel):
     duration: str
     settings: Dict[str, Any]
 
-class VisualAnalysisItem(BaseModel):
-    timestamp: str
-    description: str
-
-class AudioAnalysis(BaseModel):
-    clarity: str
-    tone: str
-    pacing: str
-
-class VideoMetadata(BaseModel):
-    duration: str
-    fileSize: str
-    resolution: str
-
 class AnalysisResponse(BaseModel):
     success: bool
     summary: str
     keyInsights: List[str]
     transcript: str
-    metadata: VideoMetadata
-    visualAnalysis: List[VisualAnalysisItem]
-    audioAnalysis: Optional[AudioAnalysis] = None
+    metadata: Dict[str, Any]
+    visualAnalysis: List[Dict[str, Any]]
+    audioAnalysis: Dict[str, Any]

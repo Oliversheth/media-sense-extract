@@ -44,11 +44,13 @@ active_connections: Dict[str, WebSocket] = {}
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    logger.info("Starting Local Video AI service...")
+    logger.info("Starting Local Video AI service on port 8001...")
     
     # Create necessary directories
     os.makedirs("temp", exist_ok=True)
     os.makedirs("output", exist_ok=True)
+    os.makedirs("output/videos", exist_ok=True)
+    os.makedirs("output/audio", exist_ok=True)
     os.makedirs("cache", exist_ok=True)
     
     # Check Ollama connection
@@ -64,7 +66,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        del active_connections[client_id]
+        if client_id in active_connections:
+            del active_connections[client_id]
 
 async def send_progress(client_id: str, stage: str, progress: int):
     """Send progress update to client via WebSocket"""
@@ -75,7 +78,8 @@ async def send_progress(client_id: str, stage: str, progress: int):
                 "progress": progress
             }))
         except:
-            del active_connections[client_id]
+            if client_id in active_connections:
+                del active_connections[client_id]
 
 @app.post("/generate-video-from-slides")
 async def generate_video_from_slides(request: VideoGenerationRequest):
