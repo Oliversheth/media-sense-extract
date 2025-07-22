@@ -19,7 +19,7 @@ export interface LocalAnalysisSettings {
 }
 
 class LocalVideoService {
-  private baseUrl = 'http://localhost:8000';
+  private baseUrl = 'http://localhost:8001';
   private wsConnections: Map<string, WebSocket> = new Map();
 
   async generateVideoFromSlides(
@@ -117,7 +117,7 @@ class LocalVideoService {
 
   private setupProgressWebSocket(clientId: string, onProgress: (stage: string, progress: number) => void) {
     try {
-      const ws = new WebSocket(`ws://localhost:8000/ws/${clientId}`);
+      const ws = new WebSocket(`ws://localhost:8001/ws/${clientId}`);
       
       ws.onmessage = (event) => {
         try {

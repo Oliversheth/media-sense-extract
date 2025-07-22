@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -91,7 +90,7 @@ const BackendStatus = () => {
 
         {status?.status !== 'healthy' && (
           <div className="p-2 bg-red-50 rounded-md text-xs text-red-700">
-            Backend offline. Make sure the Python service is running on localhost:8000
+            Backend offline. Make sure the Python service is running on localhost:8001
           </div>
         )}
 

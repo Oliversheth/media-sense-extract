@@ -41,7 +41,7 @@ ollama_client = OllamaClient()
 # Store active WebSocket connections
 active_connections: Dict[str, WebSocket] = {}
 
-@app.on_startup
+@app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
     logger.info("Starting Local Video AI service...")
@@ -180,4 +180,4 @@ async def health_check():
     }
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)
