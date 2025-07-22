@@ -10,6 +10,11 @@ from PIL import Image, ImageDraw, ImageFont
 import moviepy.editor as mp
 from moviepy.video.fx import resize
 import numpy as np
+try:
+    from TTS.api import TTS
+    TTS_AVAILABLE = True
+except ImportError:
+    TTS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +25,18 @@ class VideoGenerator:
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(f"{self.output_dir}/videos", exist_ok=True)
         os.makedirs(f"{self.output_dir}/audio", exist_ok=True)
+        os.makedirs(self.temp_dir, exist_ok=True)
+        
+        # Initialize TTS model if available
+        self.tts_model = None
+        if TTS_AVAILABLE:
+            try:
+                # Use a fast, multilingual model
+                self.tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
+                logger.info("Coqui TTS initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Coqui TTS: {e}")
+                self.tts_model = None
     
     async def create_synchronized_video(self, 
                                       script: str, 
@@ -66,47 +83,78 @@ class VideoGenerator:
             raise
     
     async def _generate_audio(self, script: str, settings: Dict[str, Any]) -> str:
-        """Generate audio using local TTS (Coqui TTS)"""
+        """Generate audio using Coqui TTS"""
         try:
-            # For now, we'll use a simple espeak fallback until Coqui TTS is set up
-            # This can be replaced with proper Coqui TTS implementation
-            
             timestamp = int(asyncio.get_event_loop().time())
             audio_path = f"{self.output_dir}/audio/audio_{timestamp}.wav"
             
-            # Simple TTS using espeak (cross-platform fallback)
-            # In production, replace this with Coqui TTS
-            voice_speed = 150  # words per minute
+            # Get voice settings
+            voice_preset = settings.get('voice', 'default')
+            language = settings.get('language', 'en')
             
             # Clean script for TTS
-            clean_script = script.replace('"', '\\"').replace('\n', ' ')
+            clean_script = script.replace('\n', ' ').strip()
             
-            # Use espeak as a simple TTS solution
-            cmd = [
-                'espeak',
-                '-s', str(voice_speed),
-                '-w', audio_path,
-                clean_script
-            ]
-            
-            try:
-                subprocess.run(cmd, check=True, capture_output=True)
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                # Fallback: create a silent audio file and log the script
-                logger.warning("TTS not available, creating silent audio")
-                duration = len(script.split()) / 2.5  # Rough estimate: 2.5 words per second
-                
-                # Create silent audio file
-                from moviepy.audio.AudioClip import AudioClip
-                silent_audio = AudioClip(lambda t: 0, duration=duration)
-                silent_audio.write_audiofile(audio_path, verbose=False, logger=None)
-                silent_audio.close()
+            if self.tts_model and TTS_AVAILABLE:
+                try:
+                    # Use Coqui TTS with voice presets
+                    speaker_wav = self._get_voice_sample(voice_preset)
+                    
+                    # Generate audio with Coqui TTS
+                    self.tts_model.tts_to_file(
+                        text=clean_script,
+                        file_path=audio_path,
+                        speaker_wav=speaker_wav,
+                        language=language
+                    )
+                    logger.info(f"Generated audio with Coqui TTS using voice: {voice_preset}")
+                    
+                except Exception as e:
+                    logger.warning(f"Coqui TTS failed: {e}, falling back to espeak")
+                    return await self._fallback_tts(clean_script, audio_path)
+            else:
+                # Fallback to espeak
+                return await self._fallback_tts(clean_script, audio_path)
             
             return audio_path
             
         except Exception as e:
             logger.error(f"Audio generation failed: {e}")
             raise
+    
+    def _get_voice_sample(self, voice_preset: str) -> str:
+        """Get voice sample for voice cloning"""
+        # Built-in voice samples for different presets
+        voice_samples = {
+            'professional_male': 'path_to_male_sample.wav',
+            'professional_female': 'path_to_female_sample.wav',
+            'energetic': 'path_to_energetic_sample.wav',
+            'calm': 'path_to_calm_sample.wav',
+            'default': None  # Use default XTTS voice
+        }
+        
+        # For now, return None to use default voice
+        # In production, you'd have actual voice sample files
+        return voice_samples.get(voice_preset, None)
+    
+    async def _fallback_tts(self, script: str, audio_path: str) -> str:
+        """Fallback TTS using espeak or silent audio"""
+        try:
+            # Try espeak first
+            cmd = ['espeak', '-s', '150', '-w', audio_path, script]
+            subprocess.run(cmd, check=True, capture_output=True)
+            logger.info("Generated audio with espeak fallback")
+            return audio_path
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Create silent audio as last resort
+            logger.warning("No TTS available, creating silent audio")
+            duration = len(script.split()) / 2.5  # Rough estimate: 2.5 words per second
+            
+            from moviepy.audio.AudioClip import AudioClip
+            silent_audio = AudioClip(lambda t: 0, duration=duration)
+            silent_audio.write_audiofile(audio_path, verbose=False, logger=None)
+            silent_audio.close()
+            return audio_path
     
     async def _create_slide_visuals(self, slide_content: Dict[str, Any], settings: Dict[str, Any]) -> list:
         """Create visual slides from content"""

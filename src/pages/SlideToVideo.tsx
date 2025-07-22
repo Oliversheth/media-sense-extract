@@ -38,7 +38,7 @@ const SlideToVideo = () => {
     intelligenceLevel: 3,
     minLength: 5,
     maxLength: 15,
-    voice: 'alloy',
+    voice: 'default',
     tone: 'professional',
     customInstructions: ''
   });
@@ -194,12 +194,13 @@ const SlideToVideo = () => {
 
   const intelligenceLabels = ['Basic', 'Simple', 'Standard', 'Advanced', 'Expert'];
   const voiceOptions = [
-    { value: 'alloy', label: 'Alloy (Neutral)' },
-    { value: 'echo', label: 'Echo (Clear)' },
-    { value: 'fable', label: 'Fable (Warm)' },
-    { value: 'onyx', label: 'Onyx (Deep)' },
-    { value: 'nova', label: 'Nova (Bright)' },
-    { value: 'shimmer', label: 'Shimmer (Smooth)' }
+    { value: 'default', label: 'Default (Coqui XTTS)' },
+    { value: 'professional_male', label: 'Professional Male' },
+    { value: 'professional_female', label: 'Professional Female' },
+    { value: 'energetic', label: 'Energetic Presenter' },
+    { value: 'calm', label: 'Calm & Clear' },
+    { value: 'academic', label: 'Academic Tone' },
+    { value: 'conversational', label: 'Conversational' }
   ];
 
   return (
